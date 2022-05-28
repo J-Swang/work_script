@@ -7,7 +7,7 @@ import sys
 
 import pandas as pd
 
-from pathlib import *
+from pathlib import Path
 
 
 
