@@ -1,0 +1,29 @@
+#!/bin/bash
+#$ -N fastp
+#$ -m be
+#$ -M c-siyuan.wang@genomics.cn
+#$ -l num_proc=2
+#$ -l mem_free=35G
+#$ -l h_vmem=40G
+#$ -l virtual_free=100M
+#$ -l h_rt=12:00:00
+#$ -j y
+#$ -t 1-4:1
+
+
+date; echo ----START----
+
+
+echo "task ID = $SGE_TASK_ID:$SGE_TASK_STEPSIZE ($JOB_ID)"
+echo "first task = $SGE_TASK_FIRST"
+echo "last task = $SGE_TASK_LAST"
+
+
+/share/Pipelines/software/FASTP/fastp -i V350022740_L0${SGE_TASK_ID}_read_1.fq.gz \
+                                      -I V350022740_L0${SGE_TASK_ID}_read_2.fq.gz \
+				      -o L0${SGE_TASK_ID}_1.fastp_dedup.fq.gz \
+				      -O L0${SGE_TASK_ID}_2.fastp_dedup.fq.gz --html "${SGE_TASK_ID}.report.html" --json "${SGE_TASK_ID}.report.json"
+
+
+
+echo ----END----; date

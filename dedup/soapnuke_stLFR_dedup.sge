@@ -1,0 +1,43 @@
+#!/bin/bash
+#$ -N dedup
+#$ -m be
+#$ -M c-siyuan.wang@genomics.cn
+#$ -l num_proc=8
+#$ -l mem_free=35G
+#$ -l h_vmem=40G
+#$ -l virtual_free=100M
+#$ -l h_rt=16:00:00
+#$ -j y
+#$ -t 1-4
+
+date; echo ----START----
+
+export LD_LIBRARY_PATH=/home/tianwei/SelfInstalled/zlib-1.2.11:$LD_LIBRARY_PATH:/share/Pipelines/cWES/software/oracle_lib:$LD_LIBRARY_PATH:/share/app/gcc-5.2.0/lib64
+export PATH=/share/app/gcc-5.2.0/bin/:/share/Data01/tsc/software/htslib/bin/:$PATH
+
+export C_INCLUDE_PATH=/share/Data01/tsc/software/zlib/include:/share/Data01/tsc/software/htslib/include/htslib:$C_INCLUDE_PATH
+
+export CPLUS_INCLUDE_PATH=/share/Data01/tsc/software/zlib/include:/share/Data01/tsc/software/htslib/include:$CPLUS_INCLUDE_PATH
+
+export LD_LIBRARY_PATH=/share/Data01/tsc/software/htslib/:/share/app/gcc-5.2.0/lib64:/share/Data01/tsc/software/zlib/lib:$LD_LIBRARY_PATH
+
+
+
+mkdir -p st_LFR_L0${SGE_TASK_ID}; cd st_LFR_L0${SGE_TASK_ID}
+
+
+cat << EOF > config_${SGE_TASK_ID}   
+rmdup
+barcodeRegionStr=100_10,117_10,133_10
+barcodeListPath=/share/Data01/tianwei/ForLab/Bin/stLFRDenovo/SuperPlus/split_barcode/barcode.list
+log=log_${SGE_TASK_ID}
+EOF
+
+
+/share/Pipelines/software/SOAPnuke/SOAPnuke filterStLFR -T 8 -c ./config_${SGE_TASK_ID} -o /share/Data01/swang/soap_dedup/st_LFR_L0${SGE_TASK_ID}   \
+                                             -1 ../V350022740_L0${SGE_TASK_ID}_read_1.fq.gz \
+                                             -2 ../V350022740_L0${SGE_TASK_ID}_read_2.fq.gz \
+			                                       -C ./L0${SGE_TASK_ID}_1.out.fq.gz \
+			                                       -D ./L0${SGE_TASK_ID}_2.out.fq.gz 
+
+echo ----END----; date
