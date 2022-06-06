@@ -1,0 +1,79 @@
+#!/bin/bash
+#$ -N cWES
+#$ -m be
+#$ -M c-siyuan.wang@genomics.cn
+#$ -l num_proc=4
+#$ -l mem_free=25G
+#$ -l h_vmem=30G
+#$ -l virtual_free=100M
+#$ -l h_rt=12:00:00
+#$ -j y
+
+#############
+############# experiment v. gold standard. 4 categories based on depth
+
+date; echo ----START----
+
+# cat ../name.fofn | grep Repeatability | cut -f2,4        # `pwd | rev | cut -d_ -f1 | rev`
+
+
+vcf_process() {
+  # echo "${4}"
+  if [[ $2 == "snps" ]]; then
+    case $3 in
+       "HC") bcftools view -i "INFO/DP>19" $PWD/clean/${1}.${2}.vcf.gz -Oz -o $PWD/clean/${1}.${2}.${3}.vcf.gz;;
+       "C") bcftools view -i "9<INFO/DP && INFO/DP<20" $PWD/clean/${1}.${2}.vcf.gz -Oz -o $PWD/clean/${1}.${2}.${3}.vcf.gz;;
+       "LC") bcftools view -i "4<INFO/DP && INFO/DP<10" $PWD/clean/${1}.${2}.vcf.gz -Oz -o $PWD/clean/${1}.${2}.${3}.vcf.gz;;
+       "ID") bcftools view -i "INFO/DP<5" $PWD/clean/${1}.${2}.vcf.gz -Oz -o $PWD/clean/${1}.${2}.${3}.vcf.gz;;
+       *)
+          exit 11
+          ;;
+    esac
+  elif [[ $2 == "indels" ]]; then
+    case $3 in
+       "HC") bcftools view -i "INFO/DP>39" $PWD/clean/${1}.${2}.vcf.gz -Oz -o $PWD/clean/${1}.${2}.${3}.vcf.gz;;
+       "C") bcftools view -i "19<INFO/DP && INFO/DP<40" $PWD/clean/${1}.${2}.vcf.gz -Oz -o $PWD/clean/${1}.${2}.${3}.vcf.gz;;
+       "LC") bcftools view -i "9<INFO/DP && INFO/DP<20" $PWD/clean/${1}.${2}.vcf.gz -Oz -o $PWD/clean/${1}.${2}.${3}.vcf.gz;;
+       "ID") bcftools view -i "INFO/DP<10" $PWD/clean/${1}.${2}.vcf.gz -Oz -o $PWD/clean/${1}.${2}.${3}.vcf.gz;;
+       *)
+          exit 11
+          ;;
+    esac
+  fi
+  # bcftools view -i "INFO/DP>19" $PWD/clean/${1}.${2}.vcf.gz -Oz -o $PWD/clean/${1}.${2}.${3}.vcf.gz
+  bcftools sort $PWD/clean/${1}.${2}.${3}.vcf.gz -Oz -o $PWD/clean/${1}.${2}.${3}.sorted.vcf.gz
+  tabix -f $PWD/clean/${1}.${2}.${3}.sorted.vcf.gz
+}
+
+
+for i in NA12878 NA12891 NA12892 NA24143 NA24149 NA24385 NA24631 NA24694 NA24695; do
+  for j in snps indels; do
+    bcftools view -v ${j} -Oz -o $PWD/clean/${i}.${j}.vcf.gz /share/Data01/BGIAU_Analysis/cWESPipeline/Validation/MethodValidation/Statistics/3_Sensitivity/Giab_Samples/RawData/${i}/${i}.V4_Giab.vcf.gz
+    bcftools sort $PWD/clean/${i}.${j}.vcf.gz -Oz -o $PWD/clean/${i}.${j}.sorted.vcf.gz
+    tabix -f $PWD/clean/${i}.${j}.sorted.vcf.gz
+    # vcf_process $i ${j} HC
+    # vcf_process $i ${j} C
+    # vcf_process $i ${j} LC
+    # vcf_process $i ${j} ID
+  done
+
+  for j in HC C LC ID; do
+    /share/Data01/tianwei/Bin/GATK_bin/rtg RTG_MEM=8G vcfeval --all-records --threads=4 \
+    -c $PWD/clean/${i}.snps.sorted.vcf.gz \
+    -b /share/Database/GRCh37/StandardSamples/Giab_${i}_GRCh37/IntersectWithV4.snp.vcf.gz \
+    -e /share/Data01/BGIAU_Analysis/cWESPipeline/Validation/MethodValidation/Statistics/3_Sensitivity/Giab_Samples/2_MeasurementUncertainty_20200716/step2_all9MU-DepthCalculation/1_BEDPreparation/Giab_V4_BED_Files/${i}/SNV_V4.${j}.bed \
+    -t /share/Pipelines/cWES/database/GenomeBWAIndex/hg19_chM_male_mask.fa.sdt \
+    -o ${i}/snp/${j}
+
+    /share/Data01/tianwei/Bin/GATK_bin/rtg RTG_MEM=8G vcfeval --all-records --threads=4 \
+    -c $PWD/clean/${i}.indels.sorted.vcf.gz \
+    -b /share/Database/GRCh37/StandardSamples/Giab_${i}_GRCh37/IntersectWithV4.indel.vcf.gz \
+    -e /share/Data01/BGIAU_Analysis/cWESPipeline/Validation/MethodValidation/Statistics/3_Sensitivity/Giab_Samples/2_MeasurementUncertainty_20200716/step2_all9MU-DepthCalculation/1_BEDPreparation/Giab_V4_BED_Files/${i}/Indel_V4.${j}.bed \
+    -t /share/Pipelines/cWES/database/GenomeBWAIndex/hg19_chM_male_mask.fa.sdt \
+    -o ${i}/indel/${j}
+  done
+done
+
+
+
+echo ----END----; date

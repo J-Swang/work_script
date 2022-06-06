@@ -1,0 +1,35 @@
+#!/bin/bash
+#$ -N cWES
+#$ -m be
+#$ -M c-siyuan.wang@genomics.cn
+#$ -l num_proc=4
+#$ -l mem_free=25G
+#$ -l h_vmem=30G
+#$ -l virtual_free=100M
+#$ -l h_rt=12:00:00
+#$ -j y
+
+#############
+############# experiment v. gold standard. 8 categories for ins and del
+
+date; echo ----START----
+
+# cat ../name.fofn | grep Repeatability | cut -f2,4        # `pwd | rev | cut -d_ -f1 | rev`
+
+
+for i in NA12878 NA12891 NA12892 NA24143 NA24149 NA24385 NA24631 NA24694 NA24695; do
+  for j in Ins Del; do
+    for k in 1 2 3 4 GT5 GT10 GT20 GT30; do
+      /share/Data01/tianwei/Bin/GATK_bin/rtg RTG_MEM=8G vcfeval --all-records --threads=4 \
+      -b /share/Data01/BGIAU_Analysis/cWESPipeline/Validation/MethodValidation/Statistics/3_Sensitivity/Giab_Samples/3_IndelLengthAnalysis/Reference/${i}/${j}_${k}.vcf.gz \
+      -c /share/Data01/BGIAU_Analysis/cWESPipeline/Validation/MethodValidation/Statistics/3_Sensitivity/Giab_Samples/RawData/${i}/${i}.indel.vcf.gz \
+      -e /share/Data01/tianwei/cWESPipeline/Validation/Databases/Giab_${i}_GRCh37/IntersectWithV4.bed \
+      -t  /share/Pipelines/cWES/database/GenomeBWAIndex/hg19_chM_male_mask.fa.sdt \
+      -o ${i}/${j}/${k}
+    done
+  done
+done
+
+
+
+echo ----END----; date

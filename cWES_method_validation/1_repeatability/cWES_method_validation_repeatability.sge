@@ -1,0 +1,36 @@
+#!/bin/bash
+#$ -N cWES
+#$ -m be
+#$ -M c-siyuan.wang@genomics.cn
+#$ -l num_proc=4
+#$ -l mem_free=25G
+#$ -l h_vmem=30G
+#$ -l virtual_free=100M
+#$ -l h_rt=12:00:00
+#$ -j y
+
+date; echo ----START----
+
+# cat ../name.fofn | grep Repeatability | cut -f2,4        # `pwd | rev | cut -d_ -f1 | rev`
+
+
+
+for i in NA12878 NA24385; do
+  data=($(cat ../name.fofn | grep Repeatability | grep ${i} | cut -f4))
+  # echo "${data[@]}"
+  
+  for j in $(seq 0 3); do
+    for ((k=$(($j+1)); k<=3; k++)); do
+      /share/Data01/tianwei/Bin/GATK_bin/rtg RTG_MEM=8G vcfeval --all-records --threads=4 \
+      -b ${data[$((j))]} \
+      -c ${data[$((k))]} \
+      -e /share/Data01/tianwei/cWESPipeline/Validation/Databases/Giab_${i}_GRCh37/IntersectWithV4.bed \
+      -t /share/Pipelines/cWES/database/GenomeBWAIndex/hg19_chM_male_mask.fa.sdt \
+      -o ${i}_${j}_${k}
+    done
+  done
+done
+
+
+
+echo ----END----; date

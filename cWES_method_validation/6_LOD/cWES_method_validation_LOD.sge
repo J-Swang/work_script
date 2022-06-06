@@ -1,0 +1,41 @@
+#!/bin/bash
+#$ -N cWES
+#$ -m be
+#$ -M c-siyuan.wang@genomics.cn
+#$ -l num_proc=4
+#$ -l mem_free=25G
+#$ -l h_vmem=30G
+#$ -l virtual_free=100M
+#$ -l h_rt=12:00:00
+#$ -j y
+
+#############
+############# 33 samples v NA12878
+
+date; echo ----START----
+
+# cat ../name.fofn | grep Repeatability | cut -f2,4        # `pwd | rev | cut -d_ -f1 | rev`
+
+
+samples=$(cat ./name.fofn | cut -f1)
+
+for i in $samples; do
+  data=$(cat ./name.fofn | grep ${i} | cut -f2)
+  
+  for j in snp indel; do
+    bcftools view -v ${j}s -Oz -o $PWD/clean/${i}.${j}.vcf.gz ${data}
+    bcftools sort $PWD/clean/${i}.${j}.vcf.gz -Oz -o $PWD/clean/${i}.${j}.sorted.vcf.gz
+    tabix -f $PWD/clean/${i}.${j}.sorted.vcf.gz
+
+    /share/Data01/tianwei/Bin/GATK_bin/rtg RTG_MEM=8G vcfeval --all-records --threads=4 \
+    -c $PWD/clean/${i}.${j}.sorted.vcf.gz \
+    -b /share/Database/GRCh37/StandardSamples/Giab_NA12878_GRCh37/IntersectWithV4.${j}.vcf.gz \
+    -e /share/Database/GRCh37/StandardSamples/Giab_NA12878_GRCh37/IntersectWithV4.bed \
+    -t /share/Pipelines/cWES/database/GenomeBWAIndex/hg19_chM_male_mask.fa.sdt \
+    -o ${i}/${j}
+  done
+done
+
+
+
+echo ----END----; date

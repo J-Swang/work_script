@@ -1,0 +1,103 @@
+#!/bin/bash
+#$ -N cWES
+#$ -m be
+#$ -M c-siyuan.wang@genomics.cn
+#$ -l num_proc=4
+#$ -l mem_free=25G
+#$ -l h_vmem=30G
+#$ -l virtual_free=100M
+#$ -l h_rt=12:00:00
+#$ -j y
+
+#############
+############# experiment v. gold standard. No additional classification info
+
+date; echo ----START----
+
+# cat ../name.fofn | grep Repeatability | cut -f2,4        # `pwd | rev | cut -d_ -f1 | rev`
+
+for i in NA12878 NA24143 NA24149 NA24385 NA24631 NA24694 NA24695; do
+  data=$(cat ../name.fofn | grep Sensitivity | grep ${i} | cut -f4)
+
+  bcftools view -v snps -e 'FILTER="LowQual"' -Oz -o $PWD/clean/${i}.snp.vcf.gz ${data}
+  bcftools sort $PWD/clean/${i}.snp.vcf.gz -Oz -o $PWD/clean/${i}.snp.sorted.vcf.gz
+  tabix -f $PWD/clean/${i}.snp.sorted.vcf.gz
+
+  for j in Hom Het; do
+    /share/Data01/tianwei/Bin/GATK_bin/rtg RTG_MEM=8G vcfeval --all-records --threads=4 \
+    -c $PWD/clean/${i}.snp.sorted.vcf.gz \
+    -b /share/Data01/BGIAU_Analysis/cWESPipeline/Validation/MethodValidation/Statistics_v2/References/${i}/${i}_snp_${j}.vcf.gz \
+    -e /share/Data01/tianwei/cWESPipeline/Validation/Databases/Giab_${i}_GRCh37/IntersectWithV4.bed \
+    -t /share/Pipelines/cWES/database/GenomeBWAIndex/hg19_chM_male_mask.fa.sdt \
+    -o snp/${i}_${j}
+  done
+done
+
+for i in NA12891 NA12892; do
+  data=$(cat ../name.fofn | grep Sensitivity | grep ${i} | cut -f4)
+
+  bcftools view -v snps -e 'FILTER="LowQual"' -Oz -o $PWD/clean/${i}.snp.vcf.gz ${data}
+  bcftools sort $PWD/clean/${i}.snp.vcf.gz -Oz -o $PWD/clean/${i}.snp.sorted.vcf.gz
+  tabix -f $PWD/clean/${i}.snp.sorted.vcf.gz
+
+  bcftools view -v snps -i 'FILTER="PASS"' $PWD/giab/${i}_IntersectWithV4.vcf.gz -Ov | perl -ne 'if(/^#/){print; print STDERR}else{my @a=split(/\t/);$a[9]=~s/\:.*//;$a[9]=~s/\||\///;if($a[9] !=11){print}else{print STDERR}}' > $PWD/giab/${i}_snps_Het.vcf 2> $PWD/giab/${i}_snps_Hom.vcf
+  gzip $PWD/giab/${i}_snps_Het.vcf $PWD/giab/${i}_snps_Hom.vcf
+  for j in Hom Het; do
+    bcftools sort $PWD/giab/${i}_snps_${j}.vcf.gz -Oz -o $PWD/giab/${i}_snps_${j}.sorted.vcf.gz
+    tabix -f $PWD/giab/${i}_snps_${j}.sorted.vcf.gz
+  done
+
+  for j in Hom Het; do
+    /share/Data01/tianwei/Bin/GATK_bin/rtg RTG_MEM=8G vcfeval --all-records --threads=4 \
+    -c $PWD/clean/${i}.snp.sorted.vcf.gz \
+    -b $PWD/giab/${i}_snps_${j}.sorted.vcf.gz \
+    -e /share/Data01/tianwei/cWESPipeline/Validation/Databases/Giab_${i}_GRCh37/IntersectWithV4.bed \
+    -t /share/Pipelines/cWES/database/GenomeBWAIndex/hg19_chM_male_mask.fa.sdt \
+    -o snp/${i}_${j}
+  done
+done
+
+for i in NA12878 NA24143 NA24149 NA24385 NA24631 NA24694 NA24695; do
+  data=$(cat ../name.fofn | grep Sensitivity | grep ${i} | cut -f4)
+
+  bcftools view -v indels -e 'FILTER="LowQual"' -Oz -o $PWD/clean/${i}.indel.vcf.gz ${data}
+  bcftools sort $PWD/clean/${i}.indel.vcf.gz -Oz -o $PWD/clean/${i}.indel.sorted.vcf.gz
+  tabix -f $PWD/clean/${i}.indel.sorted.vcf.gz
+
+  for j in Insertion Deletion; do
+    /share/Data01/tianwei/Bin/GATK_bin/rtg RTG_MEM=8G vcfeval --all-records --threads=4 \
+    -c $PWD/clean/${i}.indel.sorted.vcf.gz \
+    -b /share/Data01/BGIAU_Analysis/cWESPipeline/Validation/MethodValidation/Statistics_v2/References/${i}/${i}_${j}.vcf.gz \
+    -e /share/Data01/tianwei/cWESPipeline/Validation/Databases/Giab_${i}_GRCh37/IntersectWithV4.bed \
+    -t /share/Pipelines/cWES/database/GenomeBWAIndex/hg19_chM_male_mask.fa.sdt \
+    -o indel/${i}_${j}
+  done
+done
+
+for i in NA12891 NA12892; do
+  data=$(cat ../name.fofn | grep Sensitivity | grep ${i} | cut -f4)
+
+  bcftools view -v indels -e 'FILTER="LowQual"' -Oz -o $PWD/clean/${i}.indel.vcf.gz ${data}
+  bcftools sort $PWD/clean/${i}.indel.vcf.gz -Oz -o $PWD/clean/${i}.indel.sorted.vcf.gz
+  tabix -f $PWD/clean/${i}.indel.sorted.vcf.gz
+
+  bcftools view -v indels -i 'FILTER="PASS"' $PWD/giab/${i}_IntersectWithV4.vcf.gz -Ov | perl -ne 'my @a=split;if(/^#/){print "$_"; print STDERR "$_"}elsif(length($a[3]) < length($a[4])){print "$_"}else{print STDERR "$_"}' > $PWD/giab/${i}_Insertion.vcf 2> $PWD/giab/${i}_Deletion.vcf
+  gzip $PWD/giab/${i}_Insertion.vcf $PWD/giab/${i}_Deletion.vcf
+  for j in Insertion Deletion; do
+    bcftools sort $PWD/giab/${i}_${j}.vcf.gz -Oz -o $PWD/giab/${i}_${j}.sorted.vcf.gz
+    tabix -f $PWD/giab/${i}_${j}.sorted.vcf.gz
+  done
+
+  for j in Insertion Deletion; do
+    /share/Data01/tianwei/Bin/GATK_bin/rtg RTG_MEM=8G vcfeval --all-records --threads=4 \
+    -c $PWD/clean/${i}.indel.sorted.vcf.gz \
+    -b $PWD/giab/${i}_${j}.sorted.vcf.gz \
+    -e /share/Data01/tianwei/cWESPipeline/Validation/Databases/Giab_${i}_GRCh37/IntersectWithV4.bed \
+    -t /share/Pipelines/cWES/database/GenomeBWAIndex/hg19_chM_male_mask.fa.sdt \
+    -o indel/${i}_${j}
+  done
+done
+
+
+
+echo ----END----; date
